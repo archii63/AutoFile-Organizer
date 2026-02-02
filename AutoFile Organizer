@@ -34,7 +34,9 @@ def organize_files(folder_path):
                     shutil.move(file_path, os.path.join(target_folder, filename))
                     moved = True
                     break
-
+target_folder = os.path.join(folder_path, folder_name)
+                    os.makedirs(target_folder, exist_ok=True)
+                    shutil.move(file_path, os.path.join(target_folder, filename))
             if not moved:
                 other_folder = os.path.join(folder_path, "Others")
                 os.makedirs(other_folder, exist_ok=True)
