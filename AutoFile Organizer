@@ -29,11 +29,9 @@ def organize_files(folder_path):
 
             for folder_name, extensions in FILE_TYPES.items():
                 if file_ext in extensions:
-                    target_folder = os.path.join(folder_path, folder_name)
-                    os.makedirs(target_folder, exist_ok=True)
-                    shutil.move(file_path, os.path.join(target_folder, filename))
-                    moved = True
-                    break
+                    "Videos": [".mp4", ".mkv", ".avi"],
+    "Music": [".mp3", ".wav"],
+    "Archives": [".zip", ".rar", ".7z"]
 
 def organize_files(folder_path):
     for filename in os.listdir(folder_path):
