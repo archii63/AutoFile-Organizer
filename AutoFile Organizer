@@ -28,14 +28,6 @@ def organize_files(folder_path):
             moved = False
 
             for folder_name, extensions in FILE_TYPES.items():
-                if file_ext in extensions:
-                    "Videos": [".mp4", ".mkv", ".avi"],
-    "Music": [".mp3", ".wav"],
-    "Archives": [".zip", ".rar", ".7z"]
-
-def organize_files(folder_path):
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
 
         if os.path.isfile(file_path):
 def organize_files(folder_path):
@@ -48,6 +40,14 @@ target_folder = os.path.join(folder_path, folder_name)
                 other_folder = os.path.join(folder_path, "Others")
                 os.makedirs(other_folder, exist_ok=True)
                 shutil.move(file_path, os.path.join(other_folder, filename))
+                if file_ext in extensions:
+                    "Videos": [".mp4", ".mkv", ".avi"],
+    "Music": [".mp3", ".wav"],
+    "Archives": [".zip", ".rar", ".7z"]
+
+def organize_files(folder_path):
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
 
 if __name__ == "__main__":
     path = input("Enter the folder path to organize: ")
