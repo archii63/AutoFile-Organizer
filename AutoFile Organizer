@@ -41,6 +41,7 @@ target_folder = os.path.join(folder_path, folder_name)
                 os.makedirs(other_folder, exist_ok=True)
                 shutil.move(file_path, os.path.join(other_folder, filename))
                 if file_ext in extensions:
+                os.makedirs(other_folder, exist_ok=True)
                     "Videos": [".mp4", ".mkv", ".avi"],
     "Music": [".mp3", ".wav"],
     "Archives": [".zip", ".rar", ".7z"]
