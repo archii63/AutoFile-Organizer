@@ -1,0 +1,248 @@
+"""
+Velora
+------
+Lightweight API health monitoring service.
+
+Features:
+- Monitor multiple HTTP endpoints
+- Configurable timeout
+- Response-time measurement
+- HTTP status validation
+- JSON output for CI/CD and automation
+- Clean, dependency-free implementation
+
+Python 3.10+
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from typing import Iterable
+
+
+@dataclass(frozen=True)
+class Endpoint:
+    name: str
+    url: str
+    expected_status: int = 200
+
+
+@dataclass(frozen=True)
+class HealthResult:
+    name: str
+    url: str
+    status: str
+    http_status: int | None
+    response_time_ms: float | None
+    error: str | None
+    checked_at: str
+
+
+class HealthMonitor:
+    def __init__(self, timeout: float = 5.0) -> None:
+        self.timeout = timeout
+
+    def check(self, endpoint: Endpoint) -> HealthResult:
+        started = time.perf_counter()
+        checked_at = datetime.now(timezone.utc).isoformat()
+
+        request = urllib.request.Request(
+            endpoint.url,
+            headers={
+                "User-Agent": "Velora/1.0",
+                "Accept": "application/json, text/plain, */*",
+            },
+            method="GET",
+        )
+
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=self.timeout,
+            ) as response:
+                elapsed = round(
+                    (time.perf_counter() - started) * 1000,
+                    2,
+                )
+
+                status_code = response.status
+
+                if status_code == endpoint.expected_status:
+                    status = "healthy"
+                    error = None
+                else:
+                    status = "unhealthy"
+                    error = (
+                        f"Expected HTTP {endpoint.expected_status}, "
+                        f"received HTTP {status_code}"
+                    )
+
+                return HealthResult(
+                    name=endpoint.name,
+                    url=endpoint.url,
+                    status=status,
+                    http_status=status_code,
+                    response_time_ms=elapsed,
+                    error=error,
+                    checked_at=checked_at,
+                )
+
+        except urllib.error.HTTPError as exc:
+            elapsed = round(
+                (time.perf_counter() - started) * 1000,
+                2,
+            )
+
+            return HealthResult(
+                name=endpoint.name,
+                url=endpoint.url,
+                status="unhealthy",
+                http_status=exc.code,
+                response_time_ms=elapsed,
+                error=f"HTTP error: {exc.reason}",
+                checked_at=checked_at,
+            )
+
+        except urllib.error.URLError as exc:
+            elapsed = round(
+                (time.perf_counter() - started) * 1000,
+                2,
+            )
+
+            return HealthResult(
+                name=endpoint.name,
+                url=endpoint.url,
+                status="unreachable",
+                http_status=None,
+                response_time_ms=elapsed,
+                error=str(exc.reason),
+                checked_at=checked_at,
+            )
+
+        except TimeoutError:
+            elapsed = round(
+                (time.perf_counter() - started) * 1000,
+                2,
+            )
+
+            return HealthResult(
+                name=endpoint.name,
+                url=endpoint.url,
+                status="timeout",
+                http_status=None,
+                response_time_ms=elapsed,
+                error=f"Request exceeded {self.timeout}s timeout",
+                checked_at=checked_at,
+            )
+
+        except Exception as exc:
+            elapsed = round(
+                (time.perf_counter() - started) * 1000,
+                2,
+            )
+
+            return HealthResult(
+                name=endpoint.name,
+                url=endpoint.url,
+                status="error",
+                http_status=None,
+                response_time_ms=elapsed,
+                error=str(exc),
+                checked_at=checked_at,
+            )
+
+    def run(self, endpoints: Iterable[Endpoint]) -> list[HealthResult]:
+        return [self.check(endpoint) for endpoint in endpoints]
+
+
+def print_report(results: list[HealthResult]) -> None:
+    print("\nVelora API Health Report")
+    print("=" * 72)
+
+    for result in results:
+        icon = "OK" if result.status == "healthy" else "FAIL"
+
+        latency = (
+            f"{result.response_time_ms:.2f} ms"
+            if result.response_time_ms is not None
+            else "N/A"
+        )
+
+        print(f"[{icon}] {result.name}")
+        print(f"     URL:      {result.url}")
+        print(f"     Status:   {result.status}")
+        print(f"     HTTP:     {result.http_status or 'N/A'}")
+        print(f"     Latency:  {latency}")
+
+        if result.error:
+            print(f"     Error:    {result.error}")
+
+        print()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Velora - Lightweight API health monitor"
+    )
+
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=5.0,
+        help="HTTP request timeout in seconds",
+    )
+
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON",
+    )
+
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+
+    endpoints = [
+        Endpoint(
+            name="GitHub",
+            url="https://api.github.com",
+        ),
+        Endpoint(
+            name="Example",
+            url="https://example.com",
+        ),
+    ]
+
+    monitor = HealthMonitor(timeout=args.timeout)
+    results = monitor.run(endpoints)
+
+    if args.json:
+        print(
+            json.dumps(
+                [asdict(result) for result in results],
+                indent=2,
+            )
+        )
+    else:
+        print_report(results)
+
+    failed = [
+        result
+        for result in results
+        if result.status != "healthy"
+    ]
+
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
